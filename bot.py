@@ -14,7 +14,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import logging
 
 # ===== ТОКЕН БОТА =====
-TOKEN = os.getenv('BOT_TOKEN', '8611555727:AAHN6C0Bx7zu2RViyczSmc6YYyXD7skHWL8')
+TOKEN = os.getenv('BOT_TOKEN', '8611555727:AAGJP7ycuYJI-52vGUHtMXGqJL9iyYIrr3o')
 # ======================
 
 # ===== ДАННЫЕ ДЛЯ ВХОДА =====
@@ -61,17 +61,23 @@ last_message_ids = {}
 # ==================================
 
 def setup_driver():
+    """Настройка драйвера для headless-режима (как на сервере)"""
     options = webdriver.ChromeOptions()
     
+    # ===== HEADLESS РЕЖИМ (для сервера) =====
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1080')
+    # =========================================
+    
+    # Отключаем автоматизацию
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     
+    # Добавляем случайный user-agent
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -80,10 +86,14 @@ def setup_driver():
     options.add_argument(f'user-agent={random.choice(user_agents)}')
     
     driver = webdriver.Chrome(options=options)
+    
+    # Убираем флаг webdriver
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    
     return driver
 
 def human_scroll(driver):
+    """Простой скролл как у человека"""
     try:
         scroll_amount = random.randint(300, 700)
         driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
@@ -94,14 +104,23 @@ def human_scroll(driver):
         pass
 
 def refresh_main_page(driver):
+    """Обновляет главную страницу"""
     print(f"\n  → Обновляю главную страницу...")
     time.sleep(random.uniform(1, 3))
-    refresh_methods = [lambda: driver.refresh(), lambda: driver.get(driver.current_url)]
+    
+    refresh_methods = [
+        lambda: driver.refresh(),
+        lambda: driver.get(driver.current_url),
+        lambda: driver.execute_script("location.reload(true);")
+    ]
+    
     random.choice(refresh_methods)()
     time.sleep(random.uniform(3, 6))
     human_scroll(driver)
+    print(f"  → Главная страница обновлена")
 
 def should_skip_ad(title):
+    """Проверяет, нужно ли пропустить объявление"""
     title_lower = title.lower()
     for word in SKIP_WORDS:
         if word.lower() in title_lower:
@@ -109,9 +128,12 @@ def should_skip_ad(title):
     return False
 
 def get_all_ads(driver):
+    """Получает все объявления на странице"""
     try:
         human_scroll(driver)
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-marker='item']")))
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-marker='item']"))
+        )
         ads = driver.find_elements(By.CSS_SELECTOR, "[data-marker='item']")
         print(f"Найдено объявлений: {len(ads)}")
         return ads
@@ -120,8 +142,16 @@ def get_all_ads(driver):
         return []
 
 def get_ad_title(ad_element):
+    """Получает название объявления"""
     try:
-        selectors = [".//div[@data-marker='item-title']", ".//h3", ".//a//strong"]
+        selectors = [
+            ".//div[@data-marker='item-title']",
+            ".//h3",
+            ".//a//strong",
+            ".//a//p",
+            ".//a[contains(@class, 'title')]"
+        ]
+        
         for selector in selectors:
             try:
                 title_element = ad_element.find_element(By.XPATH, selector)
@@ -130,11 +160,18 @@ def get_ad_title(ad_element):
                     return title
             except:
                 continue
+        
+        links = ad_element.find_elements(By.XPATH, ".//a")
+        for link in links:
+            text = link.text.strip()
+            if text and len(text) > 3:
+                return text
         return "Название не найдено"
-    except:
-        return "Ошибка"
+    except Exception as e:
+        return f"Ошибка: {str(e)[:50]}"
 
 def get_ad_link(ad_element):
+    """Получает ссылку на объявление"""
     try:
         link_element = ad_element.find_element(By.XPATH, ".//a")
         return link_element.get_attribute("href")
@@ -142,7 +179,7 @@ def get_ad_link(ad_element):
         return None
 
 def visit_ad(driver, url, ad_number, title):
-    """Упрощенная версия - без скроллинга, только ожидание"""
+    """Заходит на страницу объявления (упрощенно, но работает)"""
     wait_time = random.randint(20, 30)
     print(f"\n  → Захожу на объявление #{ad_number}: {title[:50]}...")
     print(f"  → Буду смотреть {wait_time} секунд")
@@ -155,7 +192,7 @@ def visit_ad(driver, url, ad_number, title):
         # Загружаем страницу
         driver.get(url)
         
-        # Просто ждем
+        # Просто ждем (без скроллинга, чтобы не зависало)
         for i in range(wait_time, 0, -1):
             if i % 5 == 0 or i <= 3:
                 print(f"     Осталось {i} сек")
@@ -174,6 +211,7 @@ def visit_ad(driver, url, ad_number, title):
             driver.switch_to.window(driver.window_handles[0])
 
 def parser_worker():
+    """Основная функция парсера"""
     global driver, is_running, stop_flag, stats
     
     print(f"\n{'='*60}")
@@ -182,9 +220,11 @@ def parser_worker():
     
     try:
         driver = setup_driver()
+        
         url = "https://www.avito.ru/all?q=%D1%80%D0%B5%D1%81%D0%B5%D0%BF%D1%88%D0%B5%D0%BD"
         print(f"Загружаю: {url}")
         driver.get(url)
+        
         time.sleep(random.uniform(3, 6))
         human_scroll(driver)
         
@@ -258,6 +298,7 @@ def parser_worker():
                 try:
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(random.uniform(1, 2))
+                    
                     next_button = driver.find_element(By.CSS_SELECTOR, "[data-marker='pagination-button/next']")
                     if next_button.is_enabled():
                         print(f"\n→ Переход на страницу {current_page + 1}")
@@ -351,6 +392,7 @@ async def process_callback(callback: types.CallbackQuery):
             parser_thread.daemon = True
             parser_thread.start()
             is_running = True
+            
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
