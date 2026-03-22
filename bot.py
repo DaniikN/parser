@@ -13,7 +13,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import logging
 
 # ===== ТОКЕН БОТА =====
-TOKEN = os.getenv('BOT_TOKEN', '8611555727:AAHN6C0Bx7zu2RViyczSmc6YYyXD7skHWL8')
+TOKEN = ('BOT_TOKEN', '8611555727:AAHN6C0Bx7zu2RViyczSmc6YYyXD7skHWL8')
 # ======================
 
 # ===== ДАННЫЕ ДЛЯ ВХОДА =====
