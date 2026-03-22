@@ -2,6 +2,7 @@ import asyncio
 import time
 import random
 import threading
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -13,7 +14,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import logging
 
 # ===== ТОКЕН БОТА =====
-TOKEN = ('BOT_TOKEN', '8611555727:AAHN6C0Bx7zu2RViyczSmc6YYyXD7skHWL8')
+# Используем переменную окружения для токена
+TOKEN = os.getenv('BOT_TOKEN', '8550546011:AAFX2e3vXIOQd1ognLdKzVjVDKuPauiI2MM')
 # ======================
 
 # ===== ДАННЫЕ ДЛЯ ВХОДА =====
@@ -57,11 +59,21 @@ stats = {
 # ==================================
 
 def setup_driver():
-    """Настройка драйвера с параметрами для скрытия автоматизации"""
+    """Настройка драйвера с параметрами для скрытия автоматизации (для Linux)"""
     options = webdriver.ChromeOptions()
     
-    # Отключаем автоматизацию
+    # Настройки для headless режима на Render
+    options.add_argument('--headless')  # Обязательно для сервера
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
     options.add_argument('--disable-blink-features=AutomationControlled')
+    
+    # Дополнительные настройки для стабильности
+    options.add_argument('--disable-extensions')
+    options.add_argument('--disable-setuid-sandbox')
+    options.add_argument('--remote-debugging-port=9222')
+    
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     
@@ -78,7 +90,10 @@ def setup_driver():
     # Убираем флаг webdriver
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     
-    driver.maximize_window()
+    # В headless режиме не нужно максимизировать окно
+    # driver.maximize_window()
+    driver.set_window_size(1920, 1080)
+    
     return driver
 
 def human_scroll(driver):
@@ -583,8 +598,9 @@ async def process_callback(callback: types.CallbackQuery):
 
 async def main():
     """Главная функция запуска бота"""
-    await dp.start_polling(bot)
+    # Для Render нужно использовать webhook или polling с keep-alive
+    await dp.start_polling(bot, skip_updates=True)
 
 if __name__ == "__main__":
-    print("Бот запущен...")
+    print("Бот запущен на Render...")
     asyncio.run(main())
