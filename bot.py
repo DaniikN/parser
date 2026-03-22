@@ -15,7 +15,6 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import logging
 
 # ===== ТОКЕН БОТА =====
-# Для безопасности: используем переменную окружения
 TOKEN = os.getenv('BOT_TOKEN', '8611555727:AAGJP7ycuYJI-52vGUHtMXGqJL9iyYIrr3o')
 # ======================
 
@@ -36,11 +35,7 @@ SKIP_WORDS = [
 # ======================================
 
 # Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
 bot = Bot(token=TOKEN)
@@ -64,16 +59,16 @@ stats = {
 # ==================================
 
 def setup_driver():
-    """Настройка драйвера для облачного окружения (headless)"""
+    """Настройка драйвера для headless-режима (без открытия браузера)"""
     options = webdriver.ChromeOptions()
     
-    # Обязательные опции для headless-режима в облаке
+    # ===== HEADLESS РЕЖИМ (браузер не открывается) =====
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
-    options.add_argument('--disable-software-rasterizer')
     options.add_argument('--window-size=1920,1080')
+    # ===================================================
     
     # Отключаем автоматизацию
     options.add_argument('--disable-blink-features=AutomationControlled')
@@ -88,38 +83,36 @@ def setup_driver():
     ]
     options.add_argument(f'user-agent={random.choice(user_agents)}')
     
-    # Дополнительные опции для стабильности
-    options.add_argument('--disable-logging')
-    options.add_argument('--log-level=3')
-    options.add_argument('--silent')
+    driver = webdriver.Chrome(options=options)
     
-    try:
-        driver = webdriver.Chrome(options=options)
-        # Убираем флаг webdriver
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        logger.info("Chrome driver успешно инициализирован")
-        return driver
-    except Exception as e:
-        logger.error(f"Ошибка инициализации Chrome driver: {e}")
-        raise
+    # Убираем флаг webdriver
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    
+    # В headless-режиме maximize_window не работает, ставим размер через options
+    # driver.maximize_window()  # закомментировано для headless
+    
+    return driver
 
 def human_scroll(driver):
     """Простой скролл как у человека на основной странице"""
     try:
+        # Скроллим немного вниз и вверх
         scroll_amount = random.randint(300, 700)
         driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
         time.sleep(random.uniform(0.5, 1.5))
         driver.execute_script(f"window.scrollBy(0, {-scroll_amount//2});")
         time.sleep(random.uniform(0.5, 1.5))
-    except Exception as e:
-        logger.debug(f"Ошибка скролла: {e}")
+    except:
+        pass
 
 def refresh_main_page(driver):
     """Обновляет главную страницу с имитацией человеческого поведения"""
-    logger.info("Обновляю главную страницу для получения новых объявлений...")
+    print(f"\n  → Обновляю главную страницу для получения новых объявлений...")
     
+    # Имитация действий человека при обновлении
     time.sleep(random.uniform(1, 3))
     
+    # Несколько способов обновления для разнообразия
     refresh_methods = [
         lambda: driver.refresh(),
         lambda: driver.get(driver.current_url),
@@ -127,10 +120,14 @@ def refresh_main_page(driver):
     ]
     
     random.choice(refresh_methods)()
+    
+    # Ждем загрузки
     time.sleep(random.uniform(3, 6))
+    
+    # Небольшой скролл после обновления
     human_scroll(driver)
     
-    logger.info("Главная страница обновлена")
+    print(f"  → Главная страница обновлена")
 
 def should_skip_ad(title):
     """Проверяет, нужно ли пропустить объявление"""
@@ -144,6 +141,7 @@ def should_skip_ad(title):
 def get_all_ads(driver):
     """Получает все объявления на странице по их data-marker"""
     try:
+        # Небольшой скролл перед поиском (как человек)
         human_scroll(driver)
         
         WebDriverWait(driver, 10).until(
@@ -151,10 +149,10 @@ def get_all_ads(driver):
         )
         
         ads = driver.find_elements(By.CSS_SELECTOR, "[data-marker='item']")
-        logger.info(f"Найдено объявлений на странице: {len(ads)}")
+        print(f"Найдено объявлений на странице: {len(ads)}")
         return ads
     except TimeoutException:
-        logger.warning("Не удалось загрузить объявления")
+        print("Не удалось загрузить объявления")
         return []
 
 def get_ad_title(ad_element):
@@ -199,8 +197,8 @@ def get_ad_link(ad_element):
 def visit_ad(driver, url, ad_number, title):
     """Заходит на страницу объявления и скроллит как человек (20-30 сек)"""
     wait_time = random.randint(20, 30)
-    logger.info(f"Захожу на объявление #{ad_number}: {title[:50]}...")
-    logger.info(f"Буду смотреть {wait_time} секунд с прокруткой")
+    print(f"\n  → Захожу на объявление #{ad_number}: {title[:50]}...")
+    print(f"  → Буду смотреть {wait_time} секунд с прокруткой")
     
     try:
         # Открываем в новой вкладке
@@ -217,7 +215,7 @@ def visit_ad(driver, url, ad_number, title):
         # Рассчитываем время для скролла (примерно 40-50% от общего времени)
         scroll_time = int(wait_time * 0.4)
         
-        logger.info(f"Прокручиваю страницу (примерно {scroll_time} сек)...")
+        print(f"  → Прокручиваю страницу (примерно {scroll_time} сек)...")
         
         # Плавно скроллим вниз с остановками
         current_scroll = 0
@@ -230,17 +228,19 @@ def visit_ad(driver, url, ad_number, title):
             current_scroll += scroll_step
             driver.execute_script(f"window.scrollTo({{top: {current_scroll}, behavior: 'smooth'}});")
             
+            # Короткая пауза после скролла
             scroll_pause = random.uniform(1.0, 2.0)
             time.sleep(scroll_pause)
             
+            # Иногда останавливаемся подольше (как будто читаем)
             if random.random() < 0.2 and (time.time() - start_scroll_time) < scroll_time:
                 read_pause = random.uniform(2.0, 4.0)
-                logger.debug("Читаю текст...")
+                print(f"     Читаю текст...")
                 time.sleep(read_pause)
         
         # Если осталось время, скроллим обратно наверх
         if time.time() - start_scroll_time < scroll_time:
-            logger.info("Возвращаюсь наверх...")
+            print("  → Возвращаюсь наверх...")
             driver.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
             time.sleep(random.uniform(2, 3))
         
@@ -249,11 +249,12 @@ def visit_ad(driver, url, ad_number, title):
         remaining = max(0, wait_time - elapsed)
         
         if remaining > 2:
-            logger.info(f"Досматриваю объявление (осталось {int(remaining)} сек)...")
+            print(f"  → Досматриваю объявление (осталось {int(remaining)} сек)...")
             for i in range(int(remaining), 0, -1):
                 if i % 10 == 0 or i == int(remaining):
-                    logger.debug(f"Осталось {i} секунд")
+                    print(f"     Осталось {i} секунд")
                 
+                # Иногда делаем мелкие движения
                 if i % 7 == 0 and random.random() < 0.3:
                     small_scroll = random.randint(-50, 50)
                     driver.execute_script(f"window.scrollBy(0, {small_scroll});")
@@ -261,44 +262,47 @@ def visit_ad(driver, url, ad_number, title):
                 else:
                     time.sleep(1)
         
-        logger.info(f"Время на объявлении #{ad_number} закончилось")
+        print(f"  → Время на объявлении #{ad_number} закончилось")
         
         # Закрываем вкладку
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         
     except Exception as e:
-        logger.error(f"Ошибка при посещении объявления: {e}")
+        print(f"  → Ошибка: {e}")
         if len(driver.window_handles) > 1:
             driver.close()
-            driver.switch_to.window(driver.window_handles[0])
+        driver.switch_to.window(driver.window_handles[0])
 
 def parser_worker():
     """Основная функция парсера, работает в отдельном потоке"""
     global driver, is_running, stop_flag, stats
     
-    logger.info("="*60)
-    logger.info("ЗАПУСК ПАРСЕРА")
-    logger.info("="*60)
+    print(f"\n{'='*60}")
+    print(f"ЗАПУСК ПАРСЕРА")
+    print(f"{'='*60}\n")
     
     try:
         driver = setup_driver()
         
         # Открываем страницу
         url = "https://www.avito.ru/all?q=%D1%80%D0%B5%D1%81%D0%B5%D0%BF%D1%88%D0%B5%D0%BD"
-        logger.info(f"Загружаю: {url}")
+        print(f"Загружаю: {url}")
         driver.get(url)
         
+        # Небольшая задержка для загрузки
         time.sleep(random.uniform(3, 6))
+        
+        # Легкий скролл как человек
         human_scroll(driver)
         
         stats['start_time'] = time.time()
         cycle_number = 1
         
         while not stop_flag:
-            logger.info("#"*60)
-            logger.info(f"ЦИКЛ №{cycle_number}")
-            logger.info("#"*60)
+            print(f"\n{'#'*60}")
+            print(f"ЦИКЛ №{cycle_number}")
+            print(f"{'#'*60}")
             
             stats['current_cycle'] = cycle_number
             ads_processed = 0
@@ -307,21 +311,24 @@ def parser_worker():
             current_page = 1
             cycle_start_time = time.time()
             
-            while not stop_flag:
-                logger.info("="*60)
-                logger.info(f"ЦИКЛ №{cycle_number} - СТРАНИЦА {current_page}")
-                logger.info("="*60)
+            while not stop_flag:  # Цикл по страницам
+                print(f"\n{'='*60}")
+                print(f"ЦИКЛ №{cycle_number} - СТРАНИЦА {current_page}")
+                print(f"{'='*60}")
                 
                 stats['current_page'] = current_page
                 
+                # Небольшая задержка перед загрузкой страницы
                 time.sleep(random.uniform(1, 3))
                 
+                # Получаем все объявления
                 ads = get_all_ads(driver)
                 
                 if not ads:
-                    logger.warning("Объявления не найдены, переходим на следующую страницу")
+                    print("Объявления не найдены, переходим на следующую страницу")
                     break
                 
+                # Обрабатываем объявления на текущей странице
                 for i, ad in enumerate(ads, 1):
                     if stop_flag:
                         break
@@ -329,34 +336,38 @@ def parser_worker():
                     ads_processed += 1
                     stats['total_ads_processed'] += 1
                     
-                    logger.info(f"[Цикл:{cycle_number} Страница:{current_page} Объявление:{i}]")
+                    print(f"\n[Цикл:{cycle_number} Страница:{current_page} Объявление:{i}]")
                     
+                    # Получаем название
                     title = get_ad_title(ad)
-                    logger.info(f"Название: {title[:80]}...")
+                    print(f"  Название: {title[:80]}...")
                     
+                    # Получаем ссылку
                     ad_url = get_ad_link(ad)
                     
+                    # Проверяем нужно ли пропустить
                     if should_skip_ad(title):
                         ads_skipped += 1
                         stats['total_ads_skipped'] += 1
-                        logger.info(f"→ ПРОПУЩЕНО (найдено слово из списка)")
+                        print(f"  → ПРОПУЩЕНО (найдено слово из списка)")
                     else:
                         ads_visited += 1
                         stats['total_ads_visited'] += 1
-                        logger.info(f"→ ПОДХОДИТ")
+                        print(f"  → ПОДХОДИТ")
                         
                         if ad_url:
                             wait_time = random.randint(20, 30)
                             stats['total_wait_time'] += wait_time
                             visit_ad(driver, ad_url, stats['total_ads_visited'], title)
                         else:
-                            logger.warning(f"→ Нет ссылки")
+                            print(f"  → Нет ссылки")
                     
                     if stop_flag:
                         break
                     
+                    # Пауза между проверками
                     pause = random.randint(5, 10)
-                    logger.info(f"Пауза {pause} сек...")
+                    print(f"  Пауза {pause} сек...")
                     time.sleep(pause)
                 
                 if stop_flag:
@@ -364,20 +375,21 @@ def parser_worker():
                 
                 # Пытаемся перейти на следующую страницу
                 try:
+                    # Небольшой скролл перед поиском кнопки
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(random.uniform(1, 2))
                     
                     next_button = driver.find_element(By.CSS_SELECTOR, "[data-marker='pagination-button/next']")
                     if next_button.is_enabled():
-                        logger.info(f"→ Переход на страницу {current_page + 1}...")
+                        print(f"\n→ Переход на страницу {current_page + 1}...")
                         next_button.click()
                         time.sleep(random.randint(3, 7))
                         current_page += 1
                     else:
-                        logger.info("→ Достигнут конец списка в этом цикле")
+                        print("\n→ Достигнут конец списка в этом цикле")
                         break
                 except Exception as e:
-                    logger.info(f"→ Нет следующей страницы или ошибка: {e}")
+                    print(f"\n→ Нет следующей страницы или ошибка: {e}")
                     break
             
             if stop_flag:
@@ -388,46 +400,49 @@ def parser_worker():
             cycle_minutes = int(cycle_time // 60)
             cycle_seconds = int(cycle_time % 60)
             
-            logger.info("="*60)
-            logger.info(f"ИТОГИ ЦИКЛА №{cycle_number}:")
-            logger.info("="*60)
-            logger.info(f"ОБРАБОТАНО: {ads_processed}")
-            logger.info(f"ПРОПУЩЕНО: {ads_skipped}")
-            logger.info(f"ПОСЕЩЕНО: {ads_visited}")
-            logger.info(f"ВРЕМЯ ЦИКЛА: {cycle_minutes} мин {cycle_seconds} сек")
+            print(f"\n{'='*60}")
+            print(f"ИТОГИ ЦИКЛА №{cycle_number}:")
+            print(f"{'='*60}")
+            print(f"ОБРАБОТАНО: {ads_processed}")
+            print(f"ПРОПУЩЕНО: {ads_skipped}")
+            print(f"ПОСЕЩЕНО: {ads_visited}")
+            print(f"ВРЕМЯ ЦИКЛА: {cycle_minutes} мин {cycle_seconds} сек")
             
+            # Пауза перед обновлением главной страницы
             pause_time = random.randint(20, 30)
-            logger.info("="*60)
-            logger.info(f"ЗАВЕРШЕН ЦИКЛ №{cycle_number}")
-            logger.info(f"Пауза {pause_time} секунд перед обновлением страницы...")
-            logger.info("="*60)
+            print(f"\n{'='*60}")
+            print(f"ЗАВЕРШЕН ЦИКЛ №{cycle_number}")
+            print(f"Пауза {pause_time} секунд перед обновлением страницы...")
+            print(f"{'='*60}")
             
             for i in range(pause_time, 0, -1):
                 if stop_flag:
                     break
                 if i % 10 == 0 or i == pause_time:
-                    logger.info(f"До обновления: {i} секунд")
+                    print(f"До обновления: {i} секунд")
                 time.sleep(1)
             
             if stop_flag:
                 break
             
+            # Обновляем главную страницу
             refresh_main_page(driver)
             
+            # Дополнительная пауза после обновления
             extra_pause = random.randint(5, 10)
-            logger.info(f"Дополнительная пауза {extra_pause} сек перед новым циклом...")
+            print(f"\nДополнительная пауза {extra_pause} сек перед новым циклом...")
             time.sleep(extra_pause)
             
             cycle_number += 1
             
     except Exception as e:
-        logger.error(f"Ошибка в парсере: {e}", exc_info=True)
+        print(f"Ошибка в парсере: {e}")
     finally:
         if driver:
-            logger.info("Закрываю браузер...")
+            print(f"\nЗакрываю браузер...")
             driver.quit()
         is_running = False
-        logger.info("Парсер остановлен")
+        print("Парсер остановлен")
 
 # ===== ОБРАБОТЧИКИ КОМАНД =====
 
@@ -464,6 +479,7 @@ async def process_callback(callback: types.CallbackQuery):
             parser_thread.start()
             is_running = True
             
+            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -479,6 +495,7 @@ async def process_callback(callback: types.CallbackQuery):
     
     elif callback.data == "status":
         if not is_running:
+            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -491,6 +508,7 @@ async def process_callback(callback: types.CallbackQuery):
                 reply_markup=reply_markup
             )
         else:
+            # Формируем статистику
             runtime = 0
             if stats['start_time']:
                 runtime = int(time.time() - stats['start_time'])
@@ -515,9 +533,11 @@ async def process_callback(callback: types.CallbackQuery):
                 f"📋 **Слова для пропуска:**\n"
             )
             
+            # Добавляем список слов для пропуска
             for word in SKIP_WORDS:
                 status_text += f"• `{word}`\n"
             
+            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -533,6 +553,7 @@ async def process_callback(callback: types.CallbackQuery):
     
     elif callback.data == "stop_parser":
         if not is_running:
+            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -548,6 +569,7 @@ async def process_callback(callback: types.CallbackQuery):
             stop_flag = True
             is_running = False
             
+            # Обнуляем статистику
             stats = {
                 'total_ads_processed': 0,
                 'total_ads_skipped': 0,
@@ -558,6 +580,7 @@ async def process_callback(callback: types.CallbackQuery):
                 'current_page': 0
             }
             
+            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -572,8 +595,8 @@ async def process_callback(callback: types.CallbackQuery):
 
 async def main():
     """Главная функция запуска бота"""
-    logger.info("Бот запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
+    print("Бот запущен...")
     asyncio.run(main())
