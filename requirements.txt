@@ -1,2 +1,4 @@
-aiogram==3.26.0
+aiogram==2.25.1
 selenium==4.15.2
+webdriver-manager==4.0.1
+selenium-stealth==1.0.6
