@@ -71,7 +71,6 @@ def setup_driver():
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36')
     
-    # Убираем следы автоматизации
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     
@@ -80,8 +79,6 @@ def setup_driver():
         sys.stdout.flush()
         
         driver = webdriver.Chrome(options=options)
-        
-        # Маскировка под реального пользователя
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         print("✅ Chrome драйвер создан успешно!")
@@ -104,21 +101,17 @@ def parser_worker():
     sys.stdout.flush()
     
     try:
-        # Создаем драйвер
         driver = setup_driver()
         
-        # Проверяем работу Chrome
         print("🔍 Проверяю доступность Chrome...")
         driver.get("https://www.google.com")
         print(f"✅ Chrome работает, заголовок: {driver.title}")
         sys.stdout.flush()
         
-        # Загружаем страницу Avito
         url = "https://www.avito.ru/all?q=%D1%80%D0%B5%D1%81%D0%B5%D0%BF%D1%88%D0%B5%D0%BD"
         print(f"🌐 Загружаю: {url}")
         driver.get(url)
         
-        # Ждем загрузки
         time.sleep(5)
         print(f"📄 Заголовок страницы: {driver.title}")
         sys.stdout.flush()
@@ -138,46 +131,29 @@ def parser_worker():
             while not stop_flag:
                 print(f"\n📄 Страница {current_page}")
                 
-                # Ждем появления объявлений
                 try:
                     WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "[data-marker='item']"))
                     )
                 except:
-                    print("⚠️ Не дождался объявлений, пробую другие селекторы...")
+                    print("⚠️ Не дождался объявлений")
                 
-                # Ищем объявления разными способами
-                ads = []
-                selectors = [
-                    "[data-marker='item']",
-                    "[data-marker='item-view']",
-                    ".item__content"
-                ]
+                ads = driver.find_elements(By.CSS_SELECTOR, "[data-marker='item']")
+                if not ads:
+                    ads = driver.find_elements(By.CSS_SELECTOR, "[data-marker='item-view']")
                 
-                for selector in selectors:
-                    ads = driver.find_elements(By.CSS_SELECTOR, selector)
-                    if ads:
-                        print(f"✅ Найдено {len(ads)} объявлений (селектор: {selector})")
-                        break
+                print(f"✅ Найдено объявлений: {len(ads)}")
                 
                 if not ads:
                     print("❌ Объявления не найдены")
-                    # Делаем скриншот для отладки
-                    try:
-                        driver.save_screenshot('/tmp/avito_debug.png')
-                        print("📸 Скриншот сохранен в /tmp/avito_debug.png")
-                    except:
-                        pass
                     break
                 
-                # Обрабатываем объявления
                 for i, ad in enumerate(ads, 1):
                     if stop_flag:
                         break
                     
                     stats['total_ads_processed'] += 1
                     
-                    # Получаем название
                     try:
                         title_elem = ad.find_element(By.CSS_SELECTOR, "[data-marker='item-title'], h3, a")
                         title = title_elem.text.strip()
@@ -186,7 +162,6 @@ def parser_worker():
                     
                     print(f"\n[{i}/{len(ads)}] {title[:60]}...")
                     
-                    # Проверяем на пропуск
                     should_skip = False
                     for word in SKIP_WORDS:
                         if word.lower() in title.lower():
@@ -197,7 +172,6 @@ def parser_worker():
                         stats['total_ads_skipped'] += 1
                         print(f"  ⏭ ПРОПУЩЕНО")
                     else:
-                        # Получаем ссылку
                         try:
                             link_elem = ad.find_element(By.CSS_SELECTOR, "a")
                             ad_url = link_elem.get_attribute("href")
@@ -206,14 +180,12 @@ def parser_worker():
                                 stats['total_ads_visited'] += 1
                                 print(f"  🔗 ПОСЕЩАЮ")
                                 
-                                # Открываем в новой вкладке
                                 driver.execute_script("window.open('');")
                                 driver.switch_to.window(driver.window_handles[1])
                                 
                                 driver.get(ad_url)
                                 time.sleep(random.randint(10, 15))
                                 
-                                # Закрываем вкладку
                                 driver.close()
                                 driver.switch_to.window(driver.window_handles[0])
                                 
@@ -225,13 +197,11 @@ def parser_worker():
                     
                     sys.stdout.flush()
                     
-                    # Пауза между объявлениями
                     if not stop_flag and i < len(ads):
                         pause = random.randint(3, 5)
                         print(f"  ⏸ Пауза {pause} сек...")
                         time.sleep(pause)
                 
-                # Переход на следующую страницу
                 try:
                     next_btn = driver.find_element(By.CSS_SELECTOR, "[data-marker='pagination-button/next']")
                     if next_btn.is_enabled():
@@ -249,7 +219,6 @@ def parser_worker():
             if stop_flag:
                 break
             
-            # Обновляем страницу для нового цикла
             print(f"\n🔄 Обновляю главную страницу...")
             driver.refresh()
             time.sleep(5)
@@ -268,7 +237,7 @@ def parser_worker():
         print("⏹ Парсер остановлен")
         sys.stdout.flush()
 
-# Обработчики команд
+# Обработчики команд (как в предыдущей версии)
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     keyboard = [
