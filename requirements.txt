@@ -2,3 +2,6 @@ aiogram==2.25.1
 selenium==4.15.2
 webdriver-manager==4.0.1
 selenium-stealth==1.0.6
+aiohttp==3.9.1
+yarl==1.9.4
+multidict==6.0.4
