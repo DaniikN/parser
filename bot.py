@@ -35,7 +35,11 @@ SKIP_WORDS = [
 # ======================================
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
 bot = Bot(token=TOKEN)
@@ -62,13 +66,13 @@ def setup_driver():
     """Настройка драйвера для headless-режима (без открытия браузера)"""
     options = webdriver.ChromeOptions()
     
-    # ===== HEADLESS РЕЖИМ (браузер не открывается) =====
+    # ===== HEADLESS РЕЖИМ =====
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1080')
-    # ===================================================
+    # ===========================
     
     # Отключаем автоматизацию
     options.add_argument('--disable-blink-features=AutomationControlled')
@@ -88,15 +92,11 @@ def setup_driver():
     # Убираем флаг webdriver
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     
-    # В headless-режиме maximize_window не работает, ставим размер через options
-    # driver.maximize_window()  # закомментировано для headless
-    
     return driver
 
 def human_scroll(driver):
     """Простой скролл как у человека на основной странице"""
     try:
-        # Скроллим немного вниз и вверх
         scroll_amount = random.randint(300, 700)
         driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
         time.sleep(random.uniform(0.5, 1.5))
@@ -109,10 +109,8 @@ def refresh_main_page(driver):
     """Обновляет главную страницу с имитацией человеческого поведения"""
     print(f"\n  → Обновляю главную страницу для получения новых объявлений...")
     
-    # Имитация действий человека при обновлении
     time.sleep(random.uniform(1, 3))
     
-    # Несколько способов обновления для разнообразия
     refresh_methods = [
         lambda: driver.refresh(),
         lambda: driver.get(driver.current_url),
@@ -120,11 +118,7 @@ def refresh_main_page(driver):
     ]
     
     random.choice(refresh_methods)()
-    
-    # Ждем загрузки
     time.sleep(random.uniform(3, 6))
-    
-    # Небольшой скролл после обновления
     human_scroll(driver)
     
     print(f"  → Главная страница обновлена")
@@ -141,7 +135,6 @@ def should_skip_ad(title):
 def get_all_ads(driver):
     """Получает все объявления на странице по их data-marker"""
     try:
-        # Небольшой скролл перед поиском (как человек)
         human_scroll(driver)
         
         WebDriverWait(driver, 10).until(
@@ -228,11 +221,9 @@ def visit_ad(driver, url, ad_number, title):
             current_scroll += scroll_step
             driver.execute_script(f"window.scrollTo({{top: {current_scroll}, behavior: 'smooth'}});")
             
-            # Короткая пауза после скролла
             scroll_pause = random.uniform(1.0, 2.0)
             time.sleep(scroll_pause)
             
-            # Иногда останавливаемся подольше (как будто читаем)
             if random.random() < 0.2 and (time.time() - start_scroll_time) < scroll_time:
                 read_pause = random.uniform(2.0, 4.0)
                 print(f"     Читаю текст...")
@@ -254,7 +245,6 @@ def visit_ad(driver, url, ad_number, title):
                 if i % 10 == 0 or i == int(remaining):
                     print(f"     Осталось {i} секунд")
                 
-                # Иногда делаем мелкие движения
                 if i % 7 == 0 and random.random() < 0.3:
                     small_scroll = random.randint(-50, 50)
                     driver.execute_script(f"window.scrollBy(0, {small_scroll});")
@@ -285,15 +275,11 @@ def parser_worker():
     try:
         driver = setup_driver()
         
-        # Открываем страницу
         url = "https://www.avito.ru/all?q=%D1%80%D0%B5%D1%81%D0%B5%D0%BF%D1%88%D0%B5%D0%BD"
         print(f"Загружаю: {url}")
         driver.get(url)
         
-        # Небольшая задержка для загрузки
         time.sleep(random.uniform(3, 6))
-        
-        # Легкий скролл как человек
         human_scroll(driver)
         
         stats['start_time'] = time.time()
@@ -311,24 +297,20 @@ def parser_worker():
             current_page = 1
             cycle_start_time = time.time()
             
-            while not stop_flag:  # Цикл по страницам
+            while not stop_flag:
                 print(f"\n{'='*60}")
                 print(f"ЦИКЛ №{cycle_number} - СТРАНИЦА {current_page}")
                 print(f"{'='*60}")
                 
                 stats['current_page'] = current_page
                 
-                # Небольшая задержка перед загрузкой страницы
                 time.sleep(random.uniform(1, 3))
-                
-                # Получаем все объявления
                 ads = get_all_ads(driver)
                 
                 if not ads:
                     print("Объявления не найдены, переходим на следующую страницу")
                     break
                 
-                # Обрабатываем объявления на текущей странице
                 for i, ad in enumerate(ads, 1):
                     if stop_flag:
                         break
@@ -338,14 +320,11 @@ def parser_worker():
                     
                     print(f"\n[Цикл:{cycle_number} Страница:{current_page} Объявление:{i}]")
                     
-                    # Получаем название
                     title = get_ad_title(ad)
                     print(f"  Название: {title[:80]}...")
                     
-                    # Получаем ссылку
                     ad_url = get_ad_link(ad)
                     
-                    # Проверяем нужно ли пропустить
                     if should_skip_ad(title):
                         ads_skipped += 1
                         stats['total_ads_skipped'] += 1
@@ -365,7 +344,6 @@ def parser_worker():
                     if stop_flag:
                         break
                     
-                    # Пауза между проверками
                     pause = random.randint(5, 10)
                     print(f"  Пауза {pause} сек...")
                     time.sleep(pause)
@@ -373,9 +351,7 @@ def parser_worker():
                 if stop_flag:
                     break
                 
-                # Пытаемся перейти на следующую страницу
                 try:
-                    # Небольшой скролл перед поиском кнопки
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(random.uniform(1, 2))
                     
@@ -395,7 +371,6 @@ def parser_worker():
             if stop_flag:
                 break
             
-            # Статистика по циклу
             cycle_time = time.time() - cycle_start_time
             cycle_minutes = int(cycle_time // 60)
             cycle_seconds = int(cycle_time % 60)
@@ -408,7 +383,6 @@ def parser_worker():
             print(f"ПОСЕЩЕНО: {ads_visited}")
             print(f"ВРЕМЯ ЦИКЛА: {cycle_minutes} мин {cycle_seconds} сек")
             
-            # Пауза перед обновлением главной страницы
             pause_time = random.randint(20, 30)
             print(f"\n{'='*60}")
             print(f"ЗАВЕРШЕН ЦИКЛ №{cycle_number}")
@@ -425,10 +399,8 @@ def parser_worker():
             if stop_flag:
                 break
             
-            # Обновляем главную страницу
             refresh_main_page(driver)
             
-            # Дополнительная пауза после обновления
             extra_pause = random.randint(5, 10)
             print(f"\nДополнительная пауза {extra_pause} сек перед новым циклом...")
             time.sleep(extra_pause)
@@ -446,6 +418,37 @@ def parser_worker():
 
 # ===== ОБРАБОТЧИКИ КОМАНД =====
 
+# Храним ID последнего сообщения для каждого чата
+last_message_ids = {}
+
+async def edit_or_send(message, text, reply_markup=None, parse_mode=None):
+    """Безопасно редактирует или отправляет сообщение, избегая ошибки 'message is not modified'"""
+    chat_id = message.chat.id
+    last_msg_id = last_message_ids.get(chat_id)
+    
+    # Пытаемся отредактировать существующее сообщение
+    if last_msg_id:
+        try:
+            edited = await bot.edit_message_text(
+                text=text,
+                chat_id=chat_id,
+                message_id=last_msg_id,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+            return edited
+        except Exception as e:
+            if "message is not modified" in str(e):
+                # Сообщение не изменилось — ничего не делаем
+                return None
+            # Другая ошибка — отправляем новое
+            pass
+    
+    # Отправляем новое сообщение
+    new_msg = await message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
+    last_message_ids[chat_id] = new_msg.message_id
+    return new_msg
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     """Обработчик команды /start"""
@@ -456,9 +459,9 @@ async def cmd_start(message: types.Message):
     ]
     reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     
-    await message.answer(
-        '🤖 Бот для парсинга Avito\n\n'
-        'Выберите действие:',
+    await edit_or_send(
+        message,
+        '🤖 Бот для парсинга Avito\n\nВыберите действие:',
         reply_markup=reply_markup
     )
 
@@ -471,7 +474,11 @@ async def process_callback(callback: types.CallbackQuery):
     
     if callback.data == "start_parser":
         if is_running:
-            await callback.message.edit_text("❌ Парсер уже запущен!")
+            await edit_or_send(
+                callback.message,
+                "❌ Парсер уже запущен!",
+                reply_markup=callback.message.reply_markup
+            )
         else:
             stop_flag = False
             parser_thread = threading.Thread(target=parser_worker)
@@ -479,7 +486,6 @@ async def process_callback(callback: types.CallbackQuery):
             parser_thread.start()
             is_running = True
             
-            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -487,15 +493,14 @@ async def process_callback(callback: types.CallbackQuery):
             ]
             reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
             
-            await callback.message.edit_text(
-                "✅ Парсер успешно запущен!\n\n"
-                "Начинаю парсинг объявлений...",
+            await edit_or_send(
+                callback.message,
+                "✅ Парсер успешно запущен!\n\nНачинаю парсинг объявлений...",
                 reply_markup=reply_markup
             )
     
     elif callback.data == "status":
         if not is_running:
-            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -503,12 +508,12 @@ async def process_callback(callback: types.CallbackQuery):
             ]
             reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
             
-            await callback.message.edit_text(
+            await edit_or_send(
+                callback.message,
                 "❌ Парсер не запущен",
                 reply_markup=reply_markup
             )
         else:
-            # Формируем статистику
             runtime = 0
             if stats['start_time']:
                 runtime = int(time.time() - stats['start_time'])
@@ -533,11 +538,9 @@ async def process_callback(callback: types.CallbackQuery):
                 f"📋 **Слова для пропуска:**\n"
             )
             
-            # Добавляем список слов для пропуска
             for word in SKIP_WORDS:
                 status_text += f"• `{word}`\n"
             
-            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -545,7 +548,8 @@ async def process_callback(callback: types.CallbackQuery):
             ]
             reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
             
-            await callback.message.edit_text(
+            await edit_or_send(
+                callback.message,
                 status_text,
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
@@ -553,7 +557,6 @@ async def process_callback(callback: types.CallbackQuery):
     
     elif callback.data == "stop_parser":
         if not is_running:
-            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -561,7 +564,8 @@ async def process_callback(callback: types.CallbackQuery):
             ]
             reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
             
-            await callback.message.edit_text(
+            await edit_or_send(
+                callback.message,
                 "❌ Парсер не запущен",
                 reply_markup=reply_markup
             )
@@ -569,7 +573,6 @@ async def process_callback(callback: types.CallbackQuery):
             stop_flag = True
             is_running = False
             
-            # Обнуляем статистику
             stats = {
                 'total_ads_processed': 0,
                 'total_ads_skipped': 0,
@@ -580,7 +583,6 @@ async def process_callback(callback: types.CallbackQuery):
                 'current_page': 0
             }
             
-            # Возвращаем кнопки
             keyboard = [
                 [InlineKeyboardButton(text="🚀 Запуск", callback_data="start_parser")],
                 [InlineKeyboardButton(text="📊 Статус", callback_data="status")],
@@ -588,15 +590,16 @@ async def process_callback(callback: types.CallbackQuery):
             ]
             reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
             
-            await callback.message.edit_text(
+            await edit_or_send(
+                callback.message,
                 "⏹ Парсер остановлен!\n\nСтатистика сброшена.",
                 reply_markup=reply_markup
             )
 
 async def main():
     """Главная функция запуска бота"""
+    logger.info("Бот запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    print("Бот запущен...")
     asyncio.run(main())
