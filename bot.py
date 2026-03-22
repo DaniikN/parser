@@ -16,7 +16,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import logging
 
 # ===== ТОКЕН БОТА =====
-TOKEN = '8550546011:AAHjO6rrtsCFGtyeznA-W8Wmo92bM1JuUr0'
+TOKEN = os.getenv('BOT_TOKEN', '8550546011:AAHjO6rrtsCFGtyeznA-W8Wmo92bM1JuUr0')
 # ======================
 
 # ===== ДАННЫЕ ДЛЯ ВХОДА =====
