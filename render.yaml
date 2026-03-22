@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: avito-parser-bot
+    runtime: docker
+    repo: https://github.com/yourusername/your-repo  # Замените на ваш репозиторий
+    plan: free
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.9.0
